@@ -36,7 +36,7 @@ type MultiService[U comparable] struct {
 	uCipher  map[U]cipher.Block
 }
 
-func NewMultiServiceWithPassword[U comparable](method string, password string, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time) (*MultiService[U], error) {
+func NewMultiServiceWithPassword[U comparable](method string, password string, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time, tolerance int) (*MultiService[U], error) {
 	if password == "" {
 		return nil, ErrMissingPSK
 	}
@@ -44,10 +44,10 @@ func NewMultiServiceWithPassword[U comparable](method string, password string, u
 	if err != nil {
 		return nil, E.Cause(err, "decode psk")
 	}
-	return NewMultiService[U](method, iPSK, udpTimeout, handler, timeFunc)
+	return NewMultiService[U](method, iPSK, udpTimeout, handler, timeFunc, tolerance)
 }
 
-func NewMultiService[U comparable](method string, iPSK []byte, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time) (*MultiService[U], error) {
+func NewMultiService[U comparable](method string, iPSK []byte, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time, tolerance int) (*MultiService[U], error) {
 	switch method {
 	case "2022-blake3-aes-128-gcm":
 	case "2022-blake3-aes-256-gcm":
@@ -55,7 +55,7 @@ func NewMultiService[U comparable](method string, iPSK []byte, udpTimeout int64,
 		return nil, os.ErrInvalid
 	}
 
-	ss, err := NewService(method, iPSK, udpTimeout, handler, timeFunc)
+	ss, err := NewService(method, iPSK, udpTimeout, handler, timeFunc, tolerance)
 	if err != nil {
 		return nil, err
 	}

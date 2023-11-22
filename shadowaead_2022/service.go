@@ -53,9 +53,10 @@ type Service struct {
 	replayFilter replay.Filter
 	udpNat       *udpnat.Service[uint64]
 	udpSessions  *cache.LruCache[uint64, *serverUDPSession]
+	tolerance    int // unit: Second
 }
 
-func NewServiceWithPassword(method string, password string, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time) (shadowsocks.Service, error) {
+func NewServiceWithPassword(method string, password string, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time, tolerance int) (shadowsocks.Service, error) {
 	if password == "" {
 		return nil, ErrMissingPSK
 	}
@@ -63,10 +64,10 @@ func NewServiceWithPassword(method string, password string, udpTimeout int64, ha
 	if err != nil {
 		return nil, E.Cause(err, "decode psk")
 	}
-	return NewService(method, psk, udpTimeout, handler, timeFunc)
+	return NewService(method, psk, udpTimeout, handler, timeFunc, tolerance)
 }
 
-func NewService(method string, psk []byte, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time) (shadowsocks.Service, error) {
+func NewService(method string, psk []byte, udpTimeout int64, handler shadowsocks.Handler, timeFunc func() time.Time, tolerance int) (shadowsocks.Service, error) {
 	s := &Service{
 		name:     method,
 		handler:  handler,
@@ -78,6 +79,10 @@ func NewService(method string, psk []byte, udpTimeout int64, handler shadowsocks
 			cache.WithAge[uint64, *serverUDPSession](udpTimeout),
 			cache.WithUpdateAgeOnGet[uint64, *serverUDPSession](),
 		),
+		tolerance: tolerance,
+	}
+	if s.tolerance <= 0 {
+		s.tolerance = 30
 	}
 
 	switch method {
@@ -193,7 +198,7 @@ func (s *Service) newConnection(ctx context.Context, conn net.Conn, metadata M.M
 	}
 
 	diff := int(math.Abs(float64(s.time().Unix() - int64(epoch))))
-	if diff > 30 {
+	if diff > s.tolerance {
 		return E.Extend(ErrBadTimestamp, "received ", epoch, ", diff ", diff, "s")
 	}
 
@@ -464,7 +469,7 @@ process:
 		goto returnErr
 	}
 	diff := int(math.Abs(float64(s.time().Unix() - int64(epoch))))
-	if diff > 30 {
+	if diff > s.tolerance {
 		err = E.Extend(ErrBadTimestamp, "received ", epoch, ", diff ", diff, "s")
 		goto returnErr
 	}
