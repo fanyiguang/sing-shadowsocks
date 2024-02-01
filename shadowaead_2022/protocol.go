@@ -64,7 +64,7 @@ func init() {
 	random.InitializeSeed()
 }
 
-func NewWithPassword(method string, password string, timeFunc func() time.Time) (shadowsocks.Method, error) {
+func NewWithPassword(method string, password string, timeFunc func() time.Time, tolerance int) (shadowsocks.Method, error) {
 	var pskList [][]byte
 	if password == "" {
 		return nil, ErrMissingPSK
@@ -78,13 +78,18 @@ func NewWithPassword(method string, password string, timeFunc func() time.Time) 
 		}
 		pskList[i] = kb
 	}
-	return New(method, pskList, timeFunc)
+	return New(method, pskList, timeFunc, tolerance)
 }
 
-func New(method string, pskList [][]byte, timeFunc func() time.Time) (shadowsocks.Method, error) {
+func New(method string, pskList [][]byte, timeFunc func() time.Time, tolerance int) (shadowsocks.Method, error) {
 	m := &Method{
-		name:     method,
-		timeFunc: timeFunc,
+		name:      method,
+		timeFunc:  timeFunc,
+		tolerance: tolerance,
+	}
+
+	if m.tolerance <= 0 {
+		m.tolerance = 30
 	}
 
 	switch method {
@@ -186,6 +191,7 @@ type Method struct {
 	udpBlockDecryptCipher cipher.Block
 	pskList               [][]byte
 	pskHash               []byte
+	tolerance             int
 }
 
 func (m *Method) Name() string {
@@ -367,7 +373,7 @@ func (c *clientConn) readResponse() error {
 	}
 
 	diff := int(math.Abs(float64(c.time().Unix() - int64(epoch))))
-	if diff > 30 {
+	if diff > c.tolerance {
 		return E.Extend(ErrBadTimestamp, "received ", epoch, ", diff ", diff, "s")
 	}
 
@@ -631,7 +637,7 @@ func (c *clientPacketConn) ReadPacket(buffer *buf.Buffer) (M.Socksaddr, error) {
 	}
 
 	diff := int(math.Abs(float64(c.time().Unix() - int64(epoch))))
-	if diff > 30 {
+	if diff > c.tolerance {
 		return M.Socksaddr{}, E.Extend(ErrBadTimestamp, "received ", epoch, ", diff ", diff, "s")
 	}
 

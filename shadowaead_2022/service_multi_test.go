@@ -22,7 +22,7 @@ func TestMultiService(t *testing.T) {
 
 	var wg sync.WaitGroup
 
-	multiService, err := shadowaead_2022.NewMultiService[string](method, iPSK[:], 500, &multiHandler{t, &wg}, nil)
+	multiService, err := shadowaead_2022.NewMultiService[string](method, iPSK[:], 500, &multiHandler{t, &wg}, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -31,7 +31,7 @@ func TestMultiService(t *testing.T) {
 	rand.Reader.Read(uPSK[:])
 	multiService.UpdateUsers([]string{"my user"}, [][]byte{uPSK[:]})
 
-	client, err := shadowaead_2022.New(method, [][]byte{iPSK[:], uPSK[:]}, nil)
+	client, err := shadowaead_2022.New(method, [][]byte{iPSK[:], uPSK[:]}, nil, 0)
 	if err != nil {
 		t.Fatal(err)
 	}
